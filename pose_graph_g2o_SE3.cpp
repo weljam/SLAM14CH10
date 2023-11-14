@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
             v->read(fin);
             optimizer.addVertex(v);
             vertexCnt++;
+            //设置是否固定，第一帧固定
             if (index == 0)
                 v->setFixed(true);
         } else if (name == "EDGE_SE3:QUAT") {
@@ -57,7 +58,7 @@ int main(int argc, char **argv) {
             int idx1, idx2;     // 关联的两个顶点
             fin >> idx1 >> idx2;
             e->setId(edgeCnt++);
-            e->setVertex(0, optimizer.vertices()[idx1]);
+            e->setVertex(0, optimizer.vertices()[idx1]);    //设置边连接的两个顶点
             e->setVertex(1, optimizer.vertices()[idx2]);
             e->read(fin);
             optimizer.addEdge(e);
