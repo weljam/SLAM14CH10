@@ -25,15 +25,15 @@ using Sophus::SO3d;
 
 typedef Matrix<double, 6, 6> Matrix6d;
 
-// 给定误差求J_R^{-1}的近似
+// 给定误差求J_R^{-1}的近似=I+1/2[]
 Matrix6d JRInv(const SE3d &e) {
     Matrix6d J;
     J.block(0, 0, 3, 3) = SO3d::hat(e.so3().log());
     J.block(0, 3, 3, 3) = SO3d::hat(e.translation());
     J.block(3, 0, 3, 3) = Matrix3d::Zero(3, 3);
     J.block(3, 3, 3, 3) = SO3d::hat(e.so3().log());
-    // J = J * 0.5 + Matrix6d::Identity();
-    J = Matrix6d::Identity();    // try Identity if you want
+    J = J * 0.5 + Matrix6d::Identity();
+    //J = Matrix6d::Identity();    // try Identity if you want
     return J;
 }
 
@@ -48,6 +48,7 @@ public:
         double data[7];
         for (int i = 0; i < 7; i++)
             is >> data[i];
+        //利用四元数和平移向量初始化se3d
         setEstimate(SE3d(
             Quaterniond(data[6], data[3], data[4], data[5]),
             Vector3d(data[0], data[1], data[2])
@@ -55,6 +56,7 @@ public:
     }
 
     virtual bool write(ostream &os) const override {
+        //往文件中保存数据
         os << id() << " ";
         Quaterniond q = _estimate.unit_quaternion();
         os << _estimate.translation().transpose() << " ";
@@ -63,6 +65,7 @@ public:
     }
 
     virtual void setToOriginImpl() override {
+        //初始化
         _estimate = SE3d();
     }
 
@@ -85,7 +88,15 @@ public:
             is >> data[i];
         Quaterniond q(data[6], data[3], data[4], data[5]);
         q.normalize();
+        //边(观测)的误差
         setMeasurement(SE3d(q, Vector3d(data[0], data[1], data[2])));
+        //定义信息矩阵6x6，循环6+5+4+3+2+1，刚好定义了右上角矩阵，为定义的默认为零，根据sphere.g20文件可以清晰的看出
+        // 信息矩阵=[ 10000 0      0     0     0     0
+        //           0     10000 0     0     0      0
+        //           0     0     10000 0     0      0
+        //           0     0     0     40000 0      0
+        //           0     0     0     0     40000  0
+        //           0     0     0     0     0    40000]
         for (int i = 0; i < information().rows() && is.good(); i++)
             for (int j = i; j < information().cols() && is.good(); j++) {
                 is >> information()(i, j);
@@ -96,9 +107,11 @@ public:
     }
 
     virtual bool write(ostream &os) const override {
+        //传入两个节点
         VertexSE3LieAlgebra *v1 = static_cast<VertexSE3LieAlgebra *> (_vertices[0]);
         VertexSE3LieAlgebra *v2 = static_cast<VertexSE3LieAlgebra *> (_vertices[1]);
         os << v1->id() << " " << v2->id() << " ";
+        //测量值
         SE3d m = _measurement;
         Eigen::Quaterniond q = m.unit_quaternion();
         os << m.translation().transpose() << " ";
